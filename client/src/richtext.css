@@ -1,0 +1,31 @@
+﻿.ProseMirror {
+  outline: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.ProseMirror-yjs-cursor {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid black;
+  border-right: 2px solid black;
+  word-break: normal;
+  pointer-events: none;
+}
+
+.ProseMirror-yjs-cursor > div {
+  position: absolute;
+  top: -1.15em;
+  font-size: 11px;
+  background-color: rgb(250, 129, 0);
+  font-family: sans-serif;
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  user-select: none;
+  color: white;
+  padding: 2px 4px;
+  border-radius: 4px;
+  white-space: nowrap;
+}

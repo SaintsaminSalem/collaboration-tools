@@ -1,0 +1,98 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, sans-serif; }
+    body { margin: 0; padding: 8px; background: transparent; }
+    .note {
+      min-height: 100px; padding: 12px; border-radius: 8px;
+      border: 1px solid rgba(0,0,0,0.08); outline: none;
+      font-size: 14px; line-height: 1.4; width: 100%; resize: vertical;
+    }
+    .colors { display: flex; gap: 6px; margin-bottom: 8px; }
+    .swatch {
+      width: 18px; height: 18px; border-radius: 50%; cursor: pointer;
+      border: 2px solid transparent;
+    }
+    .swatch.active { border-color: #111; }
+  </style>
+</head>
+<body>
+  <div class="colors" id="colors"></div>
+  <textarea class="note" id="note" placeholder="Write a sticky note..."></textarea>
+  <script>
+    const COLORS = ["#fef08a", "#bbf7d0", "#bfdbfe", "#fbcfe8", "#fed7aa"];
+    const pending = new Map();
+    let reqId = 0;
+    let state = { text: "", color: COLORS[0] };
+
+    function callHost(method, params) {
+      return new Promise((resolve, reject) => {
+        const id = ++reqId;
+        pending.set(id, { resolve, reject });
+        parent.postMessage({ source: "collab-plugin", id, method, params }, "*");
+      });
+    }
+
+    window.addEventListener("message", (event) => {
+      const data = event.data;
+      if (!data || data.source !== "collab-host") return;
+      if (data.id && pending.has(data.id)) {
+        const { resolve, reject } = pending.get(data.id);
+        pending.delete(data.id);
+        if (data.error) reject(new Error(data.error));
+        else resolve(data.result);
+      }
+      if (data.method === "storage:changed") {
+        apply(data.params?.value);
+      }
+    });
+
+    function apply(v) {
+      state = { text: "", color: COLORS[0], ...(v || {}) };
+      const note = document.getElementById("note");
+      note.value = state.text || "";
+      note.style.background = state.color || COLORS[0];
+      document.querySelectorAll(".swatch").forEach((el) => {
+        el.classList.toggle("active", el.dataset.color === state.color);
+      });
+    }
+
+    function renderSwatches() {
+      const root = document.getElementById("colors");
+      COLORS.forEach((c) => {
+        const el = document.createElement("div");
+        el.className = "swatch" + (c === state.color ? " active" : "");
+        el.style.background = c;
+        el.dataset.color = c;
+        el.onclick = async () => {
+          state.color = c;
+          apply(state);
+          await callHost("storage.set", { value: state });
+        };
+        root.appendChild(el);
+      });
+    }
+
+    let saveTimer = null;
+    document.getElementById("note").addEventListener("input", (e) => {
+      state.text = e.target.value;
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        callHost("storage.set", { value: state });
+      }, 300);
+    });
+
+    (async function init() {
+      renderSwatches();
+      try {
+        const value = await callHost("storage.get", {});
+        apply(value);
+      } catch {
+        apply(state);
+      }
+    })();
+  </script>
+</body>
+</html>
